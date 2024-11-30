@@ -129,6 +129,15 @@ typedef struct fingerprint_device {
     fingerprint_notify_t notify;
 
     /*
+     * resets lockout on max authentication failed attempts
+     *
+     * Function return: 0 on success
+     *                  or a negative number in case of error, generally from the errno.h set.
+     */
+    int (*reset_lockout)(struct fingerprint_device* dev, const hw_auth_token_t* hat);
+    int (*invalidate_authenticator_id)(struct fingerprint_device* dev, unsigned long auth_id);
+
+    /*
      * Set notification callback:
      * Registers a user function that would receive notifications from the HAL
      * The call will block if the HAL state machine is in busy state until HAL
@@ -150,6 +159,7 @@ typedef struct fingerprint_device {
      *                  otherwise, a uint64_t of token
      */
     uint64_t (*pre_enroll)(struct fingerprint_device* dev);
+    uint64_t (*generate_challenge)(struct fingerprint_device* dev);
 
     /*
      * Fingerprint enroll request:
@@ -177,6 +187,7 @@ typedef struct fingerprint_device {
      *                  or a negative number in case of error, generally from the errno.h set.
      */
     int (*post_enroll)(struct fingerprint_device* dev);
+    uint64_t (*revoke_challenge)(struct fingerprint_device* dev, uint64_t challenge);
 
     /*
      * get_authenticator_id:
@@ -186,7 +197,8 @@ typedef struct fingerprint_device {
      *
      * Function return: current authenticator id or 0 if function failed.
      */
-    uint64_t (*get_authenticator_id)(struct fingerprint_device* dev);
+    int (*get_authenticator_id)(struct fingerprint_device* dev);
+
 
     /*
      * Cancel pending enroll or authenticate, sending FINGERPRINT_ERROR_CANCELED
@@ -211,10 +223,10 @@ typedef struct fingerprint_device {
      * Function return: 0 if enumerate request is accepted
      *                  or a negative number in case of error, generally from the errno.h set.
      */
-    int (*enumerate)(struct fingerprint_device* dev);
+    int (*enumerate)(struct fingerprint_device* dev, uint32_t gid);
 
     /*
-     * Fingerprint remove and removeTemplates request:
+     * Fingerprint remove request:
      * Deletes a fingerprint template.
      * Works only within the path set by set_active_group().
      * The fid parameter can be used as a widcard:
@@ -230,7 +242,24 @@ typedef struct fingerprint_device {
      *                  or a negative number in case of error, generally from the errno.h set.
      */
     int (*remove)(struct fingerprint_device* dev, uint32_t gid, uint32_t fid);
-    int (*removeTemplates)(struct fingerprint_device* dev, uint32_t gid, uint32_t fid);
+
+    /*
+     * Fingerprint remove request:
+     * Deletes a fingerprint template.
+     * Works only within the path set by set_active_group().
+     * The fid parameter can be used as a widcard:
+     *   * fid == 0 -- delete all the templates in the group.
+     *   * fid != 0 -- delete this specific template from the group.
+     * For each template found a notify() will be called with:
+     * fingerprint_msg.type == FINGERPRINT_TEMPLATE_REMOVED
+     * fingerprint_msg.data.removed.finger indicating a template id deleted
+     * fingerprint_msg.data.removed.remaining_templates indicating how many more
+     * templates will be deleted by this operation.
+     *
+     * Function return: 0 if fingerprint template(s) can be successfully deleted
+     *                  or a negative number in case of error, generally from the errno.h set.
+     */
+    int (*remove_templates)(struct fingerprint_device* dev, uint32_t gid, uint32_t fid);
 
     /*
      * Restricts the HAL operation to a set of fingerprints belonging to a
@@ -250,11 +279,6 @@ typedef struct fingerprint_device {
      *                  or a negative number in case of error, generally from the errno.h set.
      */
     int (*authenticate)(struct fingerprint_device* dev, uint64_t operation_id, uint32_t gid);
-
-    /*
-     * Reset the timeout when user authenticates with strong auth (e.g. PIN, pattern or password)
-     */    
-    int (*resetLockout)(struct fingerprint_device* dev, const hw_auth_token_t* hat);
 
     /*
      * Xiaomi fingerprint extension command.
