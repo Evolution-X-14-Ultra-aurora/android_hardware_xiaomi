@@ -15,17 +15,37 @@
  */
 
 #pragma once
-#include "FakeFingerprintEngine.h"
 
-using namespace ::aidl::android::hardware::biometrics::common;
+#include <android/binder_to_string.h>
+#include <stdint.h>
+#include <string>
 
 namespace aidl::android::hardware::biometrics::fingerprint {
 
-// A fake engine that is backed by system properties instead of hardware.
-class FakeFingerprintEngineRear : public FakeFingerprintEngine {
+class LockoutTracker {
   public:
-    FakeFingerprintEngineRear() : FakeFingerprintEngine() {}
-    ~FakeFingerprintEngineRear() {}
+    LockoutTracker() : mFailedCount(0) {}
+    ~LockoutTracker() {}
+
+    enum class LockoutMode : int8_t { kNone = 0, kTimed, kPermanent };
+
+    void reset();
+    LockoutMode getMode();
+    void addFailedAttempt();
+    int64_t getLockoutTimeLeft();
+    inline std::string toString() const {
+        std::ostringstream os;
+        os << "----- LockoutTracker:: -----" << std::endl;
+        os << "LockoutTracker::mFailedCount:" << mFailedCount;
+        os << ", LockoutTracker::mCurrentMode:" << (int)mCurrentMode;
+        os << std::endl;
+        return os.str();
+    }
+
+  private:
+    int32_t mFailedCount;
+    int64_t mLockoutTimedStart;
+    LockoutMode mCurrentMode;
 };
 
 }  // namespace aidl::android::hardware::biometrics::fingerprint
