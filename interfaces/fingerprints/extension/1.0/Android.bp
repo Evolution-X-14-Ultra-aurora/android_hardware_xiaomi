@@ -5,7 +5,6 @@ hidl_interface {
     root: "com.fingerprints",
     system_ext_specific: true,
     srcs: [
-        "types.hal",
         "ICalibrationCallback.hal",
         "ICryptCallback.hal",
         "IFingerprintAuthenticator.hal",
